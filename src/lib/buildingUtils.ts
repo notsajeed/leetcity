@@ -1,9 +1,19 @@
-import type { LeetCodeStats, BuildingConfig } from "../types/leetcode";
+import type { LeetCodeStats, BuildingConfig } from "@/types/leetcode";
 
 export function statsToBuildingConfig(stats: LeetCodeStats): BuildingConfig {
-  const height = Math.max(3, Math.min(30, stats.total * 0.08));
-  const width = Math.max(1.5, Math.min(6, 1.5 + stats.streak * 0.05));
-  const depth = Math.max(1.5, Math.min(6, 1.5 + stats.medium * 0.03));
+  // Logarithmic scaling — gracefully handles 1 to 3000+ problems
+  // log10(10)=1, log10(100)=2, log10(1000)=3, log10(3000)≈3.5
+  const height = stats.total > 0
+    ? Math.max(4, 4 + Math.log10(stats.total + 1) * 16)
+    : 4;
+
+  const width = stats.streak > 0
+    ? Math.max(1.8, 1.8 + Math.log10(stats.streak + 1) * 2.5)
+    : 1.8;
+
+  const depth = stats.medium > 0
+    ? Math.max(1.8, 1.8 + Math.log10(stats.medium + 1) * 2.0)
+    : 1.8;
 
   return {
     height,
@@ -15,29 +25,4 @@ export function statsToBuildingConfig(stats: LeetCodeStats): BuildingConfig {
     totalSolved: stats.total,
     streak: stats.streak,
   };
-}
-
-export function getDifficultyColor(
-  floor: number,
-  totalFloors: number,
-  easy: number,
-  medium: number,
-  hard: number
-): { color: string; emissive: string; intensity: number } {
-  const total = easy + medium + hard || 1;
-  const hardRatio = hard / total;
-  const mediumRatio = medium / total;
-
-  const floorRatio = floor / totalFloors;
-
-  if (floorRatio > 1 - hardRatio) {
-    // Top floors = hard (bright amber/gold)
-    return { color: "#ffaa00", emissive: "#ff8800", intensity: 2.5 };
-  } else if (floorRatio > mediumRatio === false && floorRatio > 1 - hardRatio - mediumRatio) {
-    // Middle floors = medium (cyan)
-    return { color: "#00ffcc", emissive: "#00ddaa", intensity: 1.8 };
-  } else {
-    // Bottom floors = easy (soft blue)
-    return { color: "#4499ff", emissive: "#2266cc", intensity: 1.2 };
-  }
 }
