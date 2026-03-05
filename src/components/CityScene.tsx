@@ -1,73 +1,57 @@
 "use client";
 
-import { Suspense, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Suspense } from "react";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import Building from "./Building";
 import { statsToBuildingConfig } from "@/lib/buildingUtils";
+import { getUserPosition } from "@/lib/cityStorage";
 import type { LeetCodeStats } from "@/types/leetcode";
 
 function Ground() {
   return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -0.01, 0]}
-      receiveShadow
-    >
-      <planeGeometry args={[400, 400, 1, 1]} />
-      <meshStandardMaterial color="#050a14" roughness={0.9} metalness={0.1} />
-    </mesh>
-  );
-}
-
-function GridOverlay() {
-  return (
-    <gridHelper
-      args={[400, 80, "#0a2040", "#0a2040"]}
-      position={[0, 0.01, 0]}
-    />
+    <>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -0.01, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[400, 400, 1, 1]} />
+        <meshStandardMaterial color="#050a14" roughness={0.9} metalness={0.1} />
+      </mesh>
+      <gridHelper
+        args={[400, 80, "#0a2040", "#0a2040"]}
+        position={[0, 0.01, 0]}
+      />
+    </>
   );
 }
 
 function BackgroundBuildings() {
   const positions: [number, number, number][] = [
-    [-8, 0, -6],
-    [-12, 0, -4],
-    [-6, 0, -10],
-    [-14, 0, -10],
-    [-18, 0, -7],
-    [-20, 0, -14],
-    [-9, 0, -18],
-    [8, 0, -6],
-    [12, 0, -4],
-    [6, 0, -10],
-    [14, 0, -10],
-    [18, 0, -7],
-    [20, 0, -14],
-    [9, 0, -18],
-    [-10, 0, -14],
-    [0, 0, -12],
-    [10, 0, -14],
-    [-4, 0, -8],
-    [4, 0, -8],
-    [-25, 0, -10],
-    [25, 0, -10],
-    [-22, 0, -20],
-    [22, 0, -20],
-    [0, 0, -22],
-    [-14, 0, -24],
-    [14, 0, -24],
+    [-30, 0, -20],
+    [-38, 0, -14],
+    [-24, 0, -32],
+    [-44, 0, -30],
+    [30, 0, -20],
+    [38, 0, -14],
+    [24, 0, -32],
+    [44, 0, -30],
+    [-20, 0, -40],
+    [0, 0, -38],
+    [20, 0, -40],
+    [-50, 0, -10],
+    [50, 0, -10],
+    [-46, 0, -42],
+    [46, 0, -42],
   ];
-
   return (
     <>
       {positions.map(([x, y, z], i) => {
         const h =
-          1.5 +
-          Math.abs(Math.sin(i * 1.7)) * 6 +
-          Math.abs(Math.cos(i * 2.3)) * 4;
-        const w = 0.8 + Math.abs(Math.cos(i * 1.1)) * 0.8;
+          2 + Math.abs(Math.sin(i * 1.7)) * 8 + Math.abs(Math.cos(i * 2.3)) * 5;
+        const w = 1 + Math.abs(Math.cos(i * 1.1)) * 1.2;
         return (
           <mesh key={i} position={[x, h / 2, z]} castShadow>
             <boxGeometry args={[w, h, w]} />
@@ -84,30 +68,25 @@ function BackgroundBuildings() {
 }
 
 interface CitySceneProps {
-  stats: LeetCodeStats | null;
-  isLoading: boolean;
+  users: LeetCodeStats[];
+  selectedUsername: string | null;
+  onSelectUser: (username: string) => void;
 }
 
-export default function CityScene({ stats, isLoading }: CitySceneProps) {
-  const config = stats ? statsToBuildingConfig(stats) : null;
-
-  // Push camera back based on building height so it always fits in view
-  const camDistance = config ? Math.max(14, config.height * 1.4) : 14;
-  const camHeight = config ? Math.max(8, config.height * 0.6) : 8;
-
-  // Fog starts well beyond the plane edges
-  const fogNear = 60;
-  const fogFar = 180;
-
+export default function CityScene({
+  users,
+  selectedUsername,
+  onSelectUser,
+}: CitySceneProps) {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <Canvas
         shadows
-        camera={{ position: [camDistance, camHeight, camDistance], fov: 45 }}
+        camera={{ position: [20, 14, 20], fov: 45 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
         style={{ background: "#020712" }}
       >
-        <fog attach="fog" args={["#020712", fogNear, fogFar]} />
+        <fog attach="fog" args={["#020712", 80, 200]} />
         <ambientLight intensity={0.08} color="#1a3a6a" />
         <directionalLight
           position={[5, 20, 5]}
@@ -116,8 +95,6 @@ export default function CityScene({ stats, isLoading }: CitySceneProps) {
           castShadow
           shadow-mapSize={[2048, 2048]}
         />
-
-        {/* Neon accent lights — scale with building */}
         <pointLight
           position={[-4, 3, 0]}
           intensity={2}
@@ -148,34 +125,30 @@ export default function CityScene({ stats, isLoading }: CitySceneProps) {
 
         <Suspense fallback={null}>
           <Ground />
-          <GridOverlay />
           <BackgroundBuildings />
 
-          {config && !isLoading && (
-            <Building config={config} position={[0, config.height / 2, 0]} />
-          )}
-
-          {isLoading && (
-            <mesh position={[0, 2, 0]}>
-              <boxGeometry args={[1.5, 4, 1.5]} />
-              <meshStandardMaterial
-                color="#0a1a3a"
-                emissive="#003366"
-                emissiveIntensity={0.5}
-                roughness={0.5}
+          {users.map((stats, index) => {
+            const config = statsToBuildingConfig(stats);
+            const [bx, , bz] = getUserPosition(stats.username, index);
+            return (
+              <Building
+                key={stats.username}
+                config={config}
+                position={[bx, config.height / 2, bz]}
+                selected={selectedUsername === stats.username}
+                onClick={() => onSelectUser(stats.username)}
               />
-            </mesh>
-          )}
+            );
+          })}
         </Suspense>
 
         <OrbitControls
-          enablePan={false}
+          enablePan={true}
           minDistance={4}
           maxDistance={300}
           maxPolarAngle={Math.PI / 2.1}
-          autoRotate={!stats && !isLoading}
+          autoRotate={users.length === 0}
           autoRotateSpeed={0.4}
-          target={[0, config ? config.height * 0.4 : 2, 0]}
         />
       </Canvas>
     </div>
