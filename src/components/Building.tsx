@@ -17,14 +17,14 @@ interface WinData {
   y: number;
   z: number;
   type: "easy" | "medium" | "hard";
-  axis: "x" | "z"; // which face this window is on
+  axis: "x" | "z";
 }
 
 const COL_STEP = 1.0;
 const ROW_STEP = 1.0;
 const WIN_W = 0.82;
 const WIN_H = 0.82;
-const WIN_D = 0.12;
+const WIN_D = 0.15;
 const MARGIN = 0.15;
 
 function buildWindows(
@@ -44,27 +44,23 @@ function buildWindows(
   const faces = [
     {
       axis: "z" as const,
-      offset: d / 2 + WIN_D / 2,
+      offset: d / 2 + WIN_D / 2 + 0.01,
       cols: Math.max(1, Math.floor((w - MARGIN * 2) / COL_STEP)),
-      faceSpan: w,
     },
     {
       axis: "z" as const,
-      offset: -(d / 2 + WIN_D / 2),
+      offset: -(d / 2 + WIN_D / 2 + 0.01),
       cols: Math.max(1, Math.floor((w - MARGIN * 2) / COL_STEP)),
-      faceSpan: w,
     },
     {
       axis: "x" as const,
-      offset: w / 2 + WIN_D / 2,
+      offset: w / 2 + WIN_D / 2 + 0.01,
       cols: Math.max(1, Math.floor((d - MARGIN * 2) / COL_STEP)),
-      faceSpan: d,
     },
     {
       axis: "x" as const,
-      offset: -(w / 2 + WIN_D / 2),
+      offset: -(w / 2 + WIN_D / 2 + 0.01),
       cols: Math.max(1, Math.floor((d - MARGIN * 2) / COL_STEP)),
-      faceSpan: d,
     },
   ];
 
@@ -76,7 +72,6 @@ function buildWindows(
       const fr = row / rowsH;
       const y = startY + row * ROW_STEP;
       if (y + WIN_H / 2 > h / 2 - MARGIN) continue;
-
       const type: "easy" | "medium" | "hard" =
         fr >= 1 - hardR ? "hard" : fr >= 1 - hardR - medR ? "medium" : "easy";
 
@@ -96,9 +91,26 @@ function buildWindows(
   return result;
 }
 
-// Two geometries — one for Z-facing, one for X-facing (rotated 90°)
-const WIN_GEO_Z = new THREE.BoxGeometry(WIN_W, WIN_H, WIN_D); // protrudes along Z
-const WIN_GEO_X = new THREE.BoxGeometry(WIN_D, WIN_H, WIN_W); // protrudes along X
+// Body material pushes surface BACK so windows always win depth test
+const makeBodyMat = (color: string, emissive?: string) =>
+  new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.6,
+    metalness: 0.3,
+    ...(emissive
+      ? { emissive: new THREE.Color(emissive), emissiveIntensity: 0.3 }
+      : {}),
+    polygonOffset: true,
+    polygonOffsetFactor: 8,
+    polygonOffsetUnits: 8,
+  });
+
+const BODY_MAT = makeBodyMat("#080e1a");
+const BODY_SEL_MAT = makeBodyMat("#0a1628", "#001840");
+
+// Window geometries — Z-facing and X-facing
+const WIN_GEO_Z = new THREE.BoxGeometry(WIN_W, WIN_H, WIN_D);
+const WIN_GEO_X = new THREE.BoxGeometry(WIN_D, WIN_H, WIN_W);
 
 const MAT_EASY = new THREE.MeshStandardMaterial({
   color: "#00aaff",
@@ -132,8 +144,6 @@ export default function Building({
 }: BuildingProps) {
   const groupRef = useRef<THREE.Group>(null);
   const beamRef = useRef<THREE.Mesh>(null);
-
-  // 6 instanced meshes: easy-z, easy-x, med-z, med-x, hard-z, hard-x
   const easyZRef = useRef<THREE.InstancedMesh>(null);
   const easyXRef = useRef<THREE.InstancedMesh>(null);
   const medZRef = useRef<THREE.InstancedMesh>(null);
@@ -150,7 +160,7 @@ export default function Building({
     hardSolved,
   } = config;
 
-  const wins = useRef<{
+  const wc = useRef<{
     ez: WinData[];
     ex: WinData[];
     mz: WinData[];
@@ -159,27 +169,27 @@ export default function Building({
     hx: WinData[];
   } | null>(null);
 
-  if (!wins.current) {
+  if (!wc.current) {
     const all = buildWindows(h, w, d, easySolved, mediumSolved, hardSolved);
-    wins.current = {
-      ez: all.filter((w) => w.type === "easy" && w.axis === "z"),
-      ex: all.filter((w) => w.type === "easy" && w.axis === "x"),
-      mz: all.filter((w) => w.type === "medium" && w.axis === "z"),
-      mx: all.filter((w) => w.type === "medium" && w.axis === "x"),
-      hz: all.filter((w) => w.type === "hard" && w.axis === "z"),
-      hx: all.filter((w) => w.type === "hard" && w.axis === "x"),
+    wc.current = {
+      ez: all.filter((x) => x.type === "easy" && x.axis === "z"),
+      ex: all.filter((x) => x.type === "easy" && x.axis === "x"),
+      mz: all.filter((x) => x.type === "medium" && x.axis === "z"),
+      mx: all.filter((x) => x.type === "medium" && x.axis === "x"),
+      hz: all.filter((x) => x.type === "hard" && x.axis === "z"),
+      hx: all.filter((x) => x.type === "hard" && x.axis === "x"),
     };
   }
 
   useEffect(() => {
-    if (!wins.current) return;
+    if (!wc.current) return;
     const pairs: [React.RefObject<THREE.InstancedMesh | null>, WinData[]][] = [
-      [easyZRef, wins.current.ez],
-      [easyXRef, wins.current.ex],
-      [medZRef, wins.current.mz],
-      [medXRef, wins.current.mx],
-      [hardZRef, wins.current.hz],
-      [hardXRef, wins.current.hx],
+      [easyZRef, wc.current.ez],
+      [easyXRef, wc.current.ex],
+      [medZRef, wc.current.mz],
+      [medXRef, wc.current.mx],
+      [hardZRef, wc.current.hz],
+      [hardXRef, wc.current.hx],
     ];
     for (const [ref, ws] of pairs) {
       if (!ref.current) continue;
@@ -202,8 +212,8 @@ export default function Building({
     }
   });
 
+  const w_ = wc.current!;
   const beamH = h * 0.7;
-  const wc = wins.current!;
 
   return (
     <group
@@ -220,16 +230,9 @@ export default function Building({
         document.body.style.cursor = "default";
       }}
     >
-      {/* Body — near-black so window gaps read as black borders */}
-      <mesh scale={[w, h, d]}>
+      {/* Body — polygonOffset pushes it behind windows */}
+      <mesh scale={[w, h, d]} material={selected ? BODY_SEL_MAT : BODY_MAT}>
         <boxGeometry />
-        <meshStandardMaterial
-          color={selected ? "#0a1628" : "#080e1a"}
-          roughness={0.6}
-          metalness={0.3}
-          emissive={selected ? "#001840" : "#000000"}
-          emissiveIntensity={selected ? 0.3 : 0}
-        />
       </mesh>
 
       {/* Roof */}
@@ -270,48 +273,48 @@ export default function Building({
         </mesh>
       )}
 
-      {/* Z-face windows (front + back) */}
-      {wc.ez.length > 0 && (
+      {/* Z-face windows */}
+      {w_.ez.length > 0 && (
         <instancedMesh
           ref={easyZRef}
-          args={[WIN_GEO_Z, MAT_EASY, wc.ez.length]}
+          args={[WIN_GEO_Z, MAT_EASY, w_.ez.length]}
           frustumCulled={false}
         />
       )}
-      {wc.mz.length > 0 && (
+      {w_.mz.length > 0 && (
         <instancedMesh
           ref={medZRef}
-          args={[WIN_GEO_Z, MAT_MED, wc.mz.length]}
+          args={[WIN_GEO_Z, MAT_MED, w_.mz.length]}
           frustumCulled={false}
         />
       )}
-      {wc.hz.length > 0 && (
+      {w_.hz.length > 0 && (
         <instancedMesh
           ref={hardZRef}
-          args={[WIN_GEO_Z, MAT_HARD, wc.hz.length]}
+          args={[WIN_GEO_Z, MAT_HARD, w_.hz.length]}
           frustumCulled={false}
         />
       )}
 
-      {/* X-face windows (left + right) — rotated geometry */}
-      {wc.ex.length > 0 && (
+      {/* X-face windows */}
+      {w_.ex.length > 0 && (
         <instancedMesh
           ref={easyXRef}
-          args={[WIN_GEO_X, MAT_EASY, wc.ex.length]}
+          args={[WIN_GEO_X, MAT_EASY, w_.ex.length]}
           frustumCulled={false}
         />
       )}
-      {wc.mx.length > 0 && (
+      {w_.mx.length > 0 && (
         <instancedMesh
           ref={medXRef}
-          args={[WIN_GEO_X, MAT_MED, wc.mx.length]}
+          args={[WIN_GEO_X, MAT_MED, w_.mx.length]}
           frustumCulled={false}
         />
       )}
-      {wc.hx.length > 0 && (
+      {w_.hx.length > 0 && (
         <instancedMesh
           ref={hardXRef}
-          args={[WIN_GEO_X, MAT_HARD, wc.hx.length]}
+          args={[WIN_GEO_X, MAT_HARD, w_.hx.length]}
           frustumCulled={false}
         />
       )}

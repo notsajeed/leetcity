@@ -11,14 +11,7 @@ import { statsToBuildingConfig } from "@/lib/buildingUtils";
 import { getUserPosition } from "@/lib/cityStorage";
 import type { LeetCodeStats } from "@/types/leetcode";
 
-function Ground() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[8000, 8000]} />
-      <meshStandardMaterial color="#050810" roughness={1} metalness={0} />
-    </mesh>
-  );
-}
+// Clear separation eliminates z-fighting entirely
 
 interface SceneProps {
   users: LeetCodeStats[];
@@ -29,7 +22,6 @@ interface SceneProps {
 function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null);
 
-  // When selection changes, smoothly fly orbit target to that building
   useEffect(() => {
     if (!controlsRef.current || !selectedUsername) return;
     const idx = users.findIndex((u) => u.username === selectedUsername);
@@ -54,8 +46,6 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
   return (
     <>
       <fog attach="fog" args={["#020712", 500, 2000]} />
-
-      {/* Bright ambient so buildings are never fully black */}
       <ambientLight intensity={1.2} color="#ffffff" />
       <directionalLight
         position={[50, 100, 50]}
@@ -88,7 +78,6 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
       />
 
       <Suspense fallback={null}>
-        <Ground />
         <Roads />
         {users.map((stats, index) => {
           const config = statsToBuildingConfig(stats);
@@ -97,7 +86,7 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
             <Building
               key={stats.username}
               config={config}
-              position={[bx, config.height / 2, bz]}
+              position={[bx, config.height / 2 + 0.02, bz]}
               selected={selectedUsername === stats.username}
               onClick={() => onSelectUser(stats.username)}
             />
