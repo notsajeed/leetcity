@@ -2,178 +2,105 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
-import { BLOCK_SIZE, ROAD_WIDTH, PLOT_SIZE } from "@/lib/cityStorage";
+import { BLOCK_SIZE, ROAD_WIDTH } from "@/lib/cityStorage";
 
-const EXTENT = 10; // how many blocks in each direction
-
-// Materials
-const ASPHALT_MAT = new THREE.MeshStandardMaterial({
-  color: "#0d1117",
-  roughness: 0.95,
-  metalness: 0.05,
-});
-const FOOTPATH_MAT = new THREE.MeshStandardMaterial({
-  color: "#161d2a",
-  roughness: 0.9,
-  metalness: 0.0,
-});
-const DASH_MAT = new THREE.MeshStandardMaterial({
-  color: "#ffcc00",
-  emissive: new THREE.Color("#ffcc00"),
-  emissiveIntensity: 0.8,
-  roughness: 0,
-});
-const SOLID_LINE_MAT = new THREE.MeshStandardMaterial({
-  color: "#ffffff",
-  emissive: new THREE.Color("#ffffff"),
-  emissiveIntensity: 0.5,
-  roughness: 0,
-});
-
+const EXTENT = 10;
 const FOOTPATH_WIDTH = 1.8;
+const TOTAL = (EXTENT * 2 + 1) * BLOCK_SIZE;
+const TEX_SIZE = 2048;
 
-export default function Roads() {
-  const totalLen = (EXTENT * 2 + 1) * BLOCK_SIZE;
+function makeRoadTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEX_SIZE;
+  canvas.height = TEX_SIZE;
+  const ctx = canvas.getContext("2d")!;
 
-  const roads: JSX.Element[] = [];
-  const footpaths: JSX.Element[] = [];
-  const markings: JSX.Element[] = [];
+  const scale = TEX_SIZE / TOTAL;
+  const roadPx = ROAD_WIDTH * scale;
+  const footPx = FOOTPATH_WIDTH * scale;
+  const blockPx = BLOCK_SIZE * scale;
+  const halfTex = TEX_SIZE / 2;
 
+  // Base — dark ground
+  ctx.fillStyle = "#050810";
+  ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+
+  // Draw all horizontal and vertical roads + footpaths
   for (let i = -EXTENT; i <= EXTENT; i++) {
-    const pos = i * BLOCK_SIZE;
+    const center = halfTex + i * blockPx;
 
-    // ── Horizontal road strip (runs along X axis) ──
-    roads.push(
-      <mesh
-        key={`rh_${i}`}
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.02, pos]}
-      >
-        <planeGeometry args={[totalLen, ROAD_WIDTH]} />
-        <primitive object={ASPHALT_MAT} attach="material" />
-      </mesh>,
-    );
+    // Footpaths (slightly lighter, drawn first, wider)
+    ctx.fillStyle = "#161d2a";
+    // Horizontal footpaths
+    ctx.fillRect(0, center - roadPx / 2 - footPx, TEX_SIZE, footPx);
+    ctx.fillRect(0, center + roadPx / 2, TEX_SIZE, footPx);
+    // Vertical footpaths
+    ctx.fillRect(center - roadPx / 2 - footPx, 0, footPx, TEX_SIZE);
+    ctx.fillRect(center + roadPx / 2, 0, footPx, TEX_SIZE);
 
-    // ── Vertical road strip (runs along Z axis) ──
-    roads.push(
-      <mesh
-        key={`rv_${i}`}
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[pos, 0.02, 0]}
-      >
-        <planeGeometry args={[ROAD_WIDTH, totalLen]} />
-        <primitive object={ASPHALT_MAT} attach="material" />
-      </mesh>,
-    );
+    // Asphalt road
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, center - roadPx / 2, TEX_SIZE, roadPx); // horizontal
+    ctx.fillRect(center - roadPx / 2, 0, roadPx, TEX_SIZE); // vertical
+  }
 
-    // ── Footpaths along horizontal roads ──
-    for (const side of [-1, 1]) {
-      const fpZ = pos + side * (ROAD_WIDTH / 2 + FOOTPATH_WIDTH / 2);
-      footpaths.push(
-        <mesh
-          key={`fph_${i}_${side}`}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0.015, fpZ]}
-        >
-          <planeGeometry args={[totalLen, FOOTPATH_WIDTH]} />
-          <primitive object={FOOTPATH_MAT} attach="material" />
-        </mesh>,
-      );
-    }
+  // Road markings — dashes and edge lines
+  for (let i = -EXTENT; i <= EXTENT; i++) {
+    const roadCenter = halfTex + i * blockPx;
 
-    // ── Footpaths along vertical roads ──
-    for (const side of [-1, 1]) {
-      const fpX = pos + side * (ROAD_WIDTH / 2 + FOOTPATH_WIDTH / 2);
-      footpaths.push(
-        <mesh
-          key={`fpv_${i}_${side}`}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[fpX, 0.015, 0]}
-        >
-          <planeGeometry args={[FOOTPATH_WIDTH, totalLen]} />
-          <primitive object={FOOTPATH_MAT} attach="material" />
-        </mesh>,
-      );
-    }
-
-    // ── Centre dashes (only on road segments between intersections) ──
     for (let j = -EXTENT; j <= EXTENT; j++) {
-      const blockCenter = j * BLOCK_SIZE;
-      const segLen = BLOCK_SIZE - ROAD_WIDTH; // skip the intersection box
+      const blockCenter = halfTex + j * blockPx;
+      const segLen = (BLOCK_SIZE - ROAD_WIDTH) * scale;
+      const segStart = blockCenter - segLen / 2;
 
-      // Horizontal dashes
+      // Yellow centre dashes — horizontal road
       const numDashes = 4;
+      ctx.fillStyle = "#ffcc00";
       for (let d = 0; d < numDashes; d++) {
-        const t = (d + 0.5) / numDashes;
-        const dx = blockCenter - segLen / 2 + t * segLen;
-        markings.push(
-          <mesh
-            key={`dh_${i}_${j}_${d}`}
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[dx, 0.04, pos]}
-          >
-            <planeGeometry args={[(segLen / numDashes) * 0.5, 0.15]} />
-            <primitive object={DASH_MAT} attach="material" />
-          </mesh>,
-        );
+        const t0 = d / numDashes;
+        const t1 = (d + 0.45) / numDashes;
+        const x0 = segStart + t0 * segLen;
+        const x1 = segStart + t1 * segLen;
+        ctx.fillRect(x0, roadCenter - 1.5, x1 - x0, 3);
       }
 
-      // Vertical dashes
+      // Yellow centre dashes — vertical road
       for (let d = 0; d < numDashes; d++) {
-        const t = (d + 0.5) / numDashes;
-        const dz = blockCenter - segLen / 2 + t * segLen;
-        markings.push(
-          <mesh
-            key={`dv_${i}_${j}_${d}`}
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[pos, 0.04, dz]}
-          >
-            <planeGeometry args={[0.15, (segLen / numDashes) * 0.5]} />
-            <primitive object={DASH_MAT} attach="material" />
-          </mesh>,
-        );
+        const t0 = d / numDashes;
+        const t1 = (d + 0.45) / numDashes;
+        const z0 = segStart + t0 * segLen;
+        const z1 = segStart + t1 * segLen;
+        ctx.fillRect(roadCenter - 1.5, z0, 3, z1 - z0);
       }
 
-      // ── Intersection box — solid asphalt, no markings ──
-      // Already covered by the road planes above
+      // White edge lines — horizontal road
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.fillRect(segStart, roadCenter - roadPx / 2 + 1, segLen, 2);
+      ctx.fillRect(segStart, roadCenter + roadPx / 2 - 3, segLen, 2);
 
-      // ── Edge white lines on each road side ──
-      // Horizontal road edges
-      for (const side of [-1, 1]) {
-        const lz = pos + side * (ROAD_WIDTH / 2 - 0.1);
-        markings.push(
-          <mesh
-            key={`elh_${i}_${j}_${side}`}
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[blockCenter, 0.035, lz]}
-          >
-            <planeGeometry args={[segLen, 0.08]} />
-            <primitive object={SOLID_LINE_MAT} attach="material" />
-          </mesh>,
-        );
-      }
-      // Vertical road edges
-      for (const side of [-1, 1]) {
-        const lx = pos + side * (ROAD_WIDTH / 2 - 0.1);
-        markings.push(
-          <mesh
-            key={`elv_${i}_${j}_${side}`}
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[lx, 0.035, blockCenter]}
-          >
-            <planeGeometry args={[0.08, segLen]} />
-            <primitive object={SOLID_LINE_MAT} attach="material" />
-          </mesh>,
-        );
-      }
+      // White edge lines — vertical road
+      ctx.fillRect(roadCenter - roadPx / 2 + 1, segStart, 2, segLen);
+      ctx.fillRect(roadCenter + roadPx / 2 - 3, segStart, 2, segLen);
     }
   }
 
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  return tex;
+}
+
+export default function Roads() {
+  const texture = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return makeRoadTexture();
+  }, []);
+
+  if (!texture) return null;
+
   return (
-    <>
-      {roads}
-      {footpaths}
-      {markings}
-    </>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+      <planeGeometry args={[TOTAL, TOTAL]} />
+      <meshStandardMaterial map={texture} roughness={0.95} metalness={0.05} />
+    </mesh>
   );
 }

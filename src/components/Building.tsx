@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { BuildingConfig } from "@/types/leetcode";
@@ -12,145 +12,115 @@ interface BuildingProps {
   onClick?: () => void;
 }
 
-// Shared geometry — windows are bigger and square-ish for readability
-const BODY_GEO = new THREE.BoxGeometry(1, 1, 1);
-// Window: wider, taller, more visible
-const WIN_GEO = new THREE.BoxGeometry(0.5, 0.6, 0.08);
-const CYLINDER_GEO = new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6);
-const SPHERE_GEO = new THREE.SphereGeometry(0.1, 8, 8);
-
-// Bright, saturated, clearly distinct window materials
-const WIN_EASY_MAT = new THREE.MeshStandardMaterial({
-  color: "#00aaff",
-  emissive: new THREE.Color("#00aaff"),
-  emissiveIntensity: 3,
-  roughness: 0,
-  metalness: 0,
-});
-const WIN_MED_MAT = new THREE.MeshStandardMaterial({
-  color: "#ff9900",
-  emissive: new THREE.Color("#ff9900"),
-  emissiveIntensity: 3,
-  roughness: 0,
-  metalness: 0,
-});
-const WIN_HARD_MAT = new THREE.MeshStandardMaterial({
-  color: "#ff2255",
-  emissive: new THREE.Color("#ff2255"),
-  emissiveIntensity: 3.5,
-  roughness: 0,
-  metalness: 0,
-});
-const BODY_MAT = new THREE.MeshStandardMaterial({
-  color: "#111827",
-  roughness: 0.4,
-  metalness: 0.6,
-});
-const BODY_SEL_MAT = new THREE.MeshStandardMaterial({
-  color: "#0d2040",
-  roughness: 0.4,
-  metalness: 0.6,
-  emissive: new THREE.Color("#003060"),
-  emissiveIntensity: 0.5,
-});
-const ROOF_MAT = new THREE.MeshStandardMaterial({
-  color: "#1e293b",
-  roughness: 0.2,
-  metalness: 0.9,
-});
-const ANTENNA_MAT = new THREE.MeshStandardMaterial({
-  color: "#475569",
-  metalness: 1,
-  roughness: 0.1,
-});
-const TIP_RED_MAT = new THREE.MeshStandardMaterial({
-  color: "#ff2200",
-  emissive: new THREE.Color("#ff2200"),
-  emissiveIntensity: 4,
-});
-const TIP_CYAN_MAT = new THREE.MeshStandardMaterial({
-  color: "#00ddff",
-  emissive: new THREE.Color("#00ddff"),
-  emissiveIntensity: 5,
-});
-
 interface WinData {
   x: number;
   y: number;
   z: number;
   type: "easy" | "medium" | "hard";
+  axis: "x" | "z"; // which face this window is on
 }
 
+const COL_STEP = 1.0;
+const ROW_STEP = 1.0;
+const WIN_W = 0.82;
+const WIN_H = 0.82;
+const WIN_D = 0.12;
+const MARGIN = 0.15;
+
 function buildWindows(
-  height: number,
-  width: number,
-  depth: number,
+  h: number,
+  w: number,
+  d: number,
   easy: number,
-  medium: number,
+  med: number,
   hard: number,
 ): WinData[] {
   const result: WinData[] = [];
-  const total = easy + medium + hard || 1;
-  const hardRatio = hard / total;
-  const medRatio = medium / total;
+  const total = easy + med + hard || 1;
+  const hardR = hard / total;
+  const medR = med / total;
+  const rowsH = Math.max(1, Math.floor((h - MARGIN * 2) / ROW_STEP));
 
-  const floors = Math.min(50, Math.max(3, Math.floor(height / 1.4)));
-  // Windows per row based on building face width — spaced 1.2 units apart
-  const winsPerRowFront = Math.max(1, Math.floor((width - 0.5) / 1.2));
-  const winsPerRowSide = Math.max(1, Math.floor((depth - 0.5) / 1.2));
-
-  const sides = [
+  const faces = [
     {
       axis: "z" as const,
-      offset: depth / 2 + 0.05,
-      count: winsPerRowFront,
-      span: width,
+      offset: d / 2 + WIN_D / 2,
+      cols: Math.max(1, Math.floor((w - MARGIN * 2) / COL_STEP)),
+      faceSpan: w,
     },
     {
       axis: "z" as const,
-      offset: -(depth / 2 + 0.05),
-      count: winsPerRowFront,
-      span: width,
+      offset: -(d / 2 + WIN_D / 2),
+      cols: Math.max(1, Math.floor((w - MARGIN * 2) / COL_STEP)),
+      faceSpan: w,
     },
     {
       axis: "x" as const,
-      offset: width / 2 + 0.05,
-      count: winsPerRowSide,
-      span: depth,
+      offset: w / 2 + WIN_D / 2,
+      cols: Math.max(1, Math.floor((d - MARGIN * 2) / COL_STEP)),
+      faceSpan: d,
     },
     {
       axis: "x" as const,
-      offset: -(width / 2 + 0.05),
-      count: winsPerRowSide,
-      span: depth,
+      offset: -(w / 2 + WIN_D / 2),
+      cols: Math.max(1, Math.floor((d - MARGIN * 2) / COL_STEP)),
+      faceSpan: d,
     },
   ];
 
-  for (let floor = 0; floor < floors; floor++) {
-    if (Math.random() < 0.08) continue; // rarely skip a whole floor
-    const floorRatio = floor / floors;
-    const y = -height / 2 + ((floor + 0.6) / floors) * height;
+  for (const { axis, offset, cols } of faces) {
+    const startX = -((cols - 1) * COL_STEP) / 2;
+    const startY = -h / 2 + MARGIN + ROW_STEP / 2;
 
-    let type: "easy" | "medium" | "hard";
-    if (floorRatio >= 1 - hardRatio) type = "hard";
-    else if (floorRatio >= 1 - hardRatio - medRatio) type = "medium";
-    else type = "easy";
+    for (let row = 0; row < rowsH; row++) {
+      const fr = row / rowsH;
+      const y = startY + row * ROW_STEP;
+      if (y + WIN_H / 2 > h / 2 - MARGIN) continue;
 
-    for (const { axis, offset, count, span } of sides) {
-      for (let w = 0; w < count; w++) {
-        if (Math.random() < 0.12) continue; // occasional dark window
-        const pos = -span / 2 + 0.8 + w * 1.2;
+      const type: "easy" | "medium" | "hard" =
+        fr >= 1 - hardR ? "hard" : fr >= 1 - hardR - medR ? "medium" : "easy";
+
+      for (let col = 0; col < cols; col++) {
+        if (Math.random() < 0.08) continue;
+        const along = startX + col * COL_STEP;
         result.push({
-          x: axis === "z" ? pos : offset,
+          x: axis === "z" ? along : offset,
           y,
-          z: axis === "z" ? offset : pos,
+          z: axis === "z" ? offset : along,
           type,
+          axis,
         });
       }
     }
   }
   return result;
 }
+
+// Two geometries — one for Z-facing, one for X-facing (rotated 90°)
+const WIN_GEO_Z = new THREE.BoxGeometry(WIN_W, WIN_H, WIN_D); // protrudes along Z
+const WIN_GEO_X = new THREE.BoxGeometry(WIN_D, WIN_H, WIN_W); // protrudes along X
+
+const MAT_EASY = new THREE.MeshStandardMaterial({
+  color: "#00aaff",
+  emissive: new THREE.Color("#00aaff"),
+  emissiveIntensity: 3.5,
+  roughness: 0,
+  metalness: 0,
+});
+const MAT_MED = new THREE.MeshStandardMaterial({
+  color: "#ff9900",
+  emissive: new THREE.Color("#ff9900"),
+  emissiveIntensity: 3.5,
+  roughness: 0,
+  metalness: 0,
+});
+const MAT_HARD = new THREE.MeshStandardMaterial({
+  color: "#ff2255",
+  emissive: new THREE.Color("#ff2255"),
+  emissiveIntensity: 4.0,
+  roughness: 0,
+  metalness: 0,
+});
 
 const dummy = new THREE.Object3D();
 
@@ -162,60 +132,78 @@ export default function Building({
 }: BuildingProps) {
   const groupRef = useRef<THREE.Group>(null);
   const beamRef = useRef<THREE.Mesh>(null);
-  const easyRef = useRef<THREE.InstancedMesh>(null);
-  const medRef = useRef<THREE.InstancedMesh>(null);
-  const hardRef = useRef<THREE.InstancedMesh>(null);
 
-  const { height, width, depth, easySolved, mediumSolved, hardSolved } = config;
+  // 6 instanced meshes: easy-z, easy-x, med-z, med-x, hard-z, hard-x
+  const easyZRef = useRef<THREE.InstancedMesh>(null);
+  const easyXRef = useRef<THREE.InstancedMesh>(null);
+  const medZRef = useRef<THREE.InstancedMesh>(null);
+  const medXRef = useRef<THREE.InstancedMesh>(null);
+  const hardZRef = useRef<THREE.InstancedMesh>(null);
+  const hardXRef = useRef<THREE.InstancedMesh>(null);
 
-  const windows = useMemo(
-    () =>
-      buildWindows(height, width, depth, easySolved, mediumSolved, hardSolved),
-    [height, width, depth, easySolved, mediumSolved, hardSolved],
-  );
-  const easyWins = useMemo(
-    () => windows.filter((w) => w.type === "easy"),
-    [windows],
-  );
-  const medWins = useMemo(
-    () => windows.filter((w) => w.type === "medium"),
-    [windows],
-  );
-  const hardWins = useMemo(
-    () => windows.filter((w) => w.type === "hard"),
-    [windows],
-  );
+  const {
+    height: h,
+    width: w,
+    depth: d,
+    easySolved,
+    mediumSolved,
+    hardSolved,
+  } = config;
 
-  // Set instanced positions once
+  const wins = useRef<{
+    ez: WinData[];
+    ex: WinData[];
+    mz: WinData[];
+    mx: WinData[];
+    hz: WinData[];
+    hx: WinData[];
+  } | null>(null);
+
+  if (!wins.current) {
+    const all = buildWindows(h, w, d, easySolved, mediumSolved, hardSolved);
+    wins.current = {
+      ez: all.filter((w) => w.type === "easy" && w.axis === "z"),
+      ex: all.filter((w) => w.type === "easy" && w.axis === "x"),
+      mz: all.filter((w) => w.type === "medium" && w.axis === "z"),
+      mx: all.filter((w) => w.type === "medium" && w.axis === "x"),
+      hz: all.filter((w) => w.type === "hard" && w.axis === "z"),
+      hx: all.filter((w) => w.type === "hard" && w.axis === "x"),
+    };
+  }
+
   useEffect(() => {
+    if (!wins.current) return;
     const pairs: [React.RefObject<THREE.InstancedMesh | null>, WinData[]][] = [
-      [easyRef, easyWins],
-      [medRef, medWins],
-      [hardRef, hardWins],
+      [easyZRef, wins.current.ez],
+      [easyXRef, wins.current.ex],
+      [medZRef, wins.current.mz],
+      [medXRef, wins.current.mx],
+      [hardZRef, wins.current.hz],
+      [hardXRef, wins.current.hx],
     ];
-    for (const [ref, wins] of pairs) {
+    for (const [ref, ws] of pairs) {
       if (!ref.current) continue;
-      wins.forEach((w, i) => {
-        dummy.position.set(w.x, w.y, w.z);
+      ws.forEach((win, i) => {
+        dummy.position.set(win.x, win.y, win.z);
         dummy.updateMatrix();
         ref.current!.setMatrixAt(i, dummy.matrix);
       });
       ref.current.instanceMatrix.needsUpdate = true;
     }
-  }, [easyWins, medWins, hardWins]);
+  }, []);
 
   useFrame((state) => {
-    if (groupRef.current) {
+    if (groupRef.current)
       groupRef.current.position.y =
         position[1] + Math.sin(state.clock.elapsedTime * 0.4) * 0.04;
-    }
     if (beamRef.current && selected) {
       const mat = beamRef.current.material as THREE.MeshStandardMaterial;
       mat.emissiveIntensity = 1.5 + Math.sin(state.clock.elapsedTime * 2) * 0.8;
     }
   });
 
-  const beamH = height * 0.7;
+  const beamH = h * 0.7;
+  const wc = wins.current!;
 
   return (
     <group
@@ -232,68 +220,99 @@ export default function Building({
         document.body.style.cursor = "default";
       }}
     >
-      {/* Body */}
-      <mesh
-        geometry={BODY_GEO}
-        material={selected ? BODY_SEL_MAT : BODY_MAT}
-        scale={[width, height, depth]}
-      />
+      {/* Body — near-black so window gaps read as black borders */}
+      <mesh scale={[w, h, d]}>
+        <boxGeometry />
+        <meshStandardMaterial
+          color={selected ? "#0a1628" : "#080e1a"}
+          roughness={0.6}
+          metalness={0.3}
+          emissive={selected ? "#001840" : "#000000"}
+          emissiveIntensity={selected ? 0.3 : 0}
+        />
+      </mesh>
 
-      {/* Roof ledge */}
-      <mesh
-        position={[0, height / 2 + 0.2, 0]}
-        geometry={BODY_GEO}
-        material={ROOF_MAT}
-        scale={[width + 0.3, 0.4, depth + 0.3]}
-      />
+      {/* Roof */}
+      <mesh position={[0, h / 2 + 0.2, 0]} scale={[w + 0.3, 0.35, d + 0.3]}>
+        <boxGeometry />
+        <meshStandardMaterial color="#111827" roughness={0.4} metalness={0.6} />
+      </mesh>
 
       {/* Antenna */}
-      <mesh
-        position={[0, height / 2 + 0.8, 0]}
-        geometry={CYLINDER_GEO}
-        material={ANTENNA_MAT}
-      />
+      <mesh position={[0, h / 2 + 0.75, 0]}>
+        <cylinderGeometry args={[0.035, 0.035, 0.7, 6]} />
+        <meshStandardMaterial color="#334155" metalness={1} roughness={0.1} />
+      </mesh>
 
       {/* Tip */}
-      <mesh
-        position={[0, height / 2 + 1.25, 0]}
-        geometry={SPHERE_GEO}
-        material={selected ? TIP_CYAN_MAT : TIP_RED_MAT}
-      />
+      <mesh position={[0, h / 2 + 1.15, 0]}>
+        <sphereGeometry args={[0.09, 8, 8]} />
+        <meshStandardMaterial
+          color={selected ? "#00ddff" : "#ff2200"}
+          emissive={selected ? "#00ddff" : "#ff2200"}
+          emissiveIntensity={selected ? 5 : 4}
+        />
+      </mesh>
 
       {/* Selection beam */}
       {selected && (
-        <mesh ref={beamRef} position={[0, height / 2 + 1.25 + beamH / 2, 0]}>
-          <cylinderGeometry args={[0.05, 0.25, beamH, 10, 1, true]} />
+        <mesh ref={beamRef} position={[0, h / 2 + 1.15 + beamH / 2, 0]}>
+          <cylinderGeometry args={[0.05, 0.22, beamH, 10, 1, true]} />
           <meshStandardMaterial
             color="#00ddff"
             emissive="#00ddff"
             emissiveIntensity={2}
             transparent
-            opacity={0.15}
+            opacity={0.13}
             side={THREE.DoubleSide}
             depthWrite={false}
           />
         </mesh>
       )}
 
-      {/* Instanced windows — 3 draw calls total */}
-      {easyWins.length > 0 && (
+      {/* Z-face windows (front + back) */}
+      {wc.ez.length > 0 && (
         <instancedMesh
-          ref={easyRef}
-          args={[WIN_GEO, WIN_EASY_MAT, easyWins.length]}
+          ref={easyZRef}
+          args={[WIN_GEO_Z, MAT_EASY, wc.ez.length]}
+          frustumCulled={false}
         />
       )}
-      {medWins.length > 0 && (
+      {wc.mz.length > 0 && (
         <instancedMesh
-          ref={medRef}
-          args={[WIN_GEO, WIN_MED_MAT, medWins.length]}
+          ref={medZRef}
+          args={[WIN_GEO_Z, MAT_MED, wc.mz.length]}
+          frustumCulled={false}
         />
       )}
-      {hardWins.length > 0 && (
+      {wc.hz.length > 0 && (
         <instancedMesh
-          ref={hardRef}
-          args={[WIN_GEO, WIN_HARD_MAT, hardWins.length]}
+          ref={hardZRef}
+          args={[WIN_GEO_Z, MAT_HARD, wc.hz.length]}
+          frustumCulled={false}
+        />
+      )}
+
+      {/* X-face windows (left + right) — rotated geometry */}
+      {wc.ex.length > 0 && (
+        <instancedMesh
+          ref={easyXRef}
+          args={[WIN_GEO_X, MAT_EASY, wc.ex.length]}
+          frustumCulled={false}
+        />
+      )}
+      {wc.mx.length > 0 && (
+        <instancedMesh
+          ref={medXRef}
+          args={[WIN_GEO_X, MAT_MED, wc.mx.length]}
+          frustumCulled={false}
+        />
+      )}
+      {wc.hx.length > 0 && (
+        <instancedMesh
+          ref={hardXRef}
+          args={[WIN_GEO_X, MAT_HARD, wc.hx.length]}
+          frustumCulled={false}
         />
       )}
     </group>
