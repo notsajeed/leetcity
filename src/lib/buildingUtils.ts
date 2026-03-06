@@ -1,19 +1,15 @@
 import type { LeetCodeStats, BuildingConfig } from "@/types/leetcode";
 
 export function statsToBuildingConfig(stats: LeetCodeStats): BuildingConfig {
-  // Logarithmic scaling — gracefully handles 1 to 3000+ problems
-  // log10(10)=1, log10(100)=2, log10(1000)=3, log10(3000)≈3.5
-  const height = stats.total > 0
-    ? Math.max(4, 4 + Math.log10(stats.total + 1) * 16)
-    : 4;
+  // Pure linear — 50 looks tiny, 500 looks 10x taller, 3000 is a skyscraper
+  // 1 solved = 0.06 units of height, cap at 120 so 2000+ stays sane
+  const height = Math.max(1.5, Math.min(120, stats.total * 0.06));
 
-  const width = stats.streak > 0
-    ? Math.max(1.8, 1.8 + Math.log10(stats.streak + 1) * 2.5)
-    : 1.8;
+  // Width from streak — linear, small streaks = thin, long streaks = wide
+  const width = Math.max(1.2, Math.min(8, 1.2 + stats.streak * 0.06));
 
-  const depth = stats.medium > 0
-    ? Math.max(1.8, 1.8 + Math.log10(stats.medium + 1) * 2.0)
-    : 1.8;
+  // Depth from medium problems
+  const depth = Math.max(1.2, Math.min(8, 1.2 + stats.medium * 0.025));
 
   return {
     height,
