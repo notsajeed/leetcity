@@ -89,7 +89,7 @@ export default function Home() {
         />
       </div>
 
-      {/* Top bar */}
+      {/* Top bar — single row: brand | search | spacer | logo */}
       <div
         style={{
           position: "absolute",
@@ -97,82 +97,68 @@ export default function Home() {
           left: 0,
           right: 0,
           zIndex: 20,
-          padding: "clamp(12px,3vw,20px) clamp(14px,4vw,28px)",
+          padding: "clamp(10px,2.5vw,18px) clamp(14px,4vw,28px)",
           display: "flex",
-          flexDirection: "column",
-          gap: "10px",
+          alignItems: "center",
+          gap: "clamp(10px,2vw,20px)",
           background:
             "linear-gradient(180deg, rgba(2,7,18,0.97) 0%, transparent 100%)",
         }}
       >
-        {/* Row 1: Brand name (left) + Logo (right) */}
+        {/* Brand */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
+            alignItems: "baseline",
+            gap: "2px",
+            flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
-            <span
-              style={{
-                color: "#ff1133",
-                fontSize: "clamp(14px,4vw,18px)",
-                fontWeight: "800",
-                letterSpacing: "0.05em",
-              }}
-            >
-              LEET
-            </span>
-            <span
-              style={{
-                color: "#cc0022",
-                fontSize: "clamp(14px,4vw,18px)",
-                fontWeight: "800",
-                letterSpacing: "0.05em",
-              }}
-            >
-              CITY
-            </span>
-            <span
-              style={{
-                color: "#440011",
-                fontSize: "10px",
-                marginLeft: "8px",
-                letterSpacing: "0.15em",
-              }}
-            >
-              v0.2
-            </span>
-          </div>
-
-          {/* Logo — scales with viewport, hidden if too small */}
-          <img
-            src="/leetcitylogo.png"
-            alt="LeetCity Logo"
+          <span
             style={{
-              height: "clamp(28px, 5vw, 44px)",
-              width: "auto",
-              objectFit: "contain",
-              display: "block",
-              flexShrink: 0,
+              color: "#ff1133",
+              fontSize: "clamp(13px,3.5vw,17px)",
+              fontWeight: "800",
+              letterSpacing: "0.05em",
             }}
-          />
+          >
+            LEET
+          </span>
+          <span
+            style={{
+              color: "#cc0022",
+              fontSize: "clamp(13px,3.5vw,17px)",
+              fontWeight: "800",
+              letterSpacing: "0.05em",
+            }}
+          >
+            CITY
+          </span>
+          <span
+            style={{
+              color: "#440011",
+              fontSize: "9px",
+              marginLeft: "6px",
+              letterSpacing: "0.15em",
+            }}
+          >
+            v0.2
+          </span>
         </div>
 
-        {/* Row 2: Search — full width on mobile */}
+        {/* Search — compact fixed width */}
         <div
           style={{
             display: "flex",
-            gap: "8px",
+            gap: "6px",
             alignItems: "center",
-            width: "100%",
+            width: "clamp(160px, 22vw, 260px)",
+            flexShrink: 0,
           }}
         >
           <input
             type="text"
-            placeholder="enter leetcode username"
+            placeholder="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={handleKey}
@@ -181,8 +167,8 @@ export default function Home() {
               border: "1px solid rgba(200,0,30,0.3)",
               borderRadius: "4px",
               color: "#ffaaaa",
-              fontSize: "13px",
-              padding: "9px 14px",
+              fontSize: "12px",
+              padding: "7px 10px",
               outline: "none",
               flex: 1,
               minWidth: 0,
@@ -203,9 +189,9 @@ export default function Home() {
               border: "1px solid rgba(255,0,51,0.4)",
               borderRadius: "4px",
               color: isLoading ? "#550011" : "#ff1133",
-              fontSize: "11px",
+              fontSize: "10px",
               letterSpacing: "0.1em",
-              padding: "9px 14px",
+              padding: "7px 10px",
               cursor: isLoading ? "not-allowed" : "pointer",
               fontFamily: "inherit",
               whiteSpace: "nowrap",
@@ -215,9 +201,25 @@ export default function Home() {
             {isLoading ? "..." : "ADD"}
           </button>
         </div>
+
+        {/* Spacer pushes logo to far right */}
+        <div style={{ flex: 1 }} />
+
+        {/* Logo */}
+        <img
+          src="/leetcitylogo.png"
+          alt="LeetCity Logo"
+          style={{
+            height: "clamp(26px, 4.5vw, 40px)",
+            width: "auto",
+            objectFit: "contain",
+            display: "block",
+            flexShrink: 0,
+          }}
+        />
       </div>
 
-      {/* Stats panel — bottom, full width on mobile */}
+      {/* Stats panel */}
       {selectedStats && (
         <div
           style={{
@@ -277,7 +279,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Controls hint — hidden on small screens */}
+      {/* Controls hint */}
       <div
         style={{
           position: "absolute",

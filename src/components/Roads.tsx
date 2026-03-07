@@ -4,100 +4,76 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { BLOCK_SIZE, ROAD_WIDTH } from "@/lib/cityStorage";
 
-const EXTENT = 10;
 const FOOTPATH_WIDTH = 1.8;
-const TOTAL = (EXTENT * 2 + 1) * BLOCK_SIZE;
-const TEX_SIZE = 2048;
+const TEX_SIZE = 512; // one cell
+const PLANE_SIZE = 8000; // large enough to never see the edge
+const TILE_COUNT = PLANE_SIZE / BLOCK_SIZE;
 
-function makeRoadTexture(): THREE.CanvasTexture {
+function makeTileTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = TEX_SIZE;
   canvas.height = TEX_SIZE;
   const ctx = canvas.getContext("2d")!;
 
-  const scale = TEX_SIZE / TOTAL;
+  const scale = TEX_SIZE / BLOCK_SIZE;
   const roadPx = ROAD_WIDTH * scale;
   const footPx = FOOTPATH_WIDTH * scale;
-  const blockPx = BLOCK_SIZE * scale;
-  const halfTex = TEX_SIZE / 2;
+  const half = TEX_SIZE / 2;
 
-  // Base — near black with red tint
+  // Base — near-black red tint
   ctx.fillStyle = "#080203";
   ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
 
-  // Draw all horizontal and vertical roads + footpaths
-  for (let i = -EXTENT; i <= EXTENT; i++) {
-    const center = halfTex + i * blockPx;
+  // Footpaths
+  ctx.fillStyle = "#140508";
+  ctx.fillRect(0, half - roadPx / 2 - footPx, TEX_SIZE, footPx);
+  ctx.fillRect(0, half + roadPx / 2, TEX_SIZE, footPx);
+  ctx.fillRect(half - roadPx / 2 - footPx, 0, footPx, TEX_SIZE);
+  ctx.fillRect(half + roadPx / 2, 0, footPx, TEX_SIZE);
 
-    // Footpaths — dark red-tinted stone
-    ctx.fillStyle = "#140508";
-    // Horizontal footpaths
-    ctx.fillRect(0, center - roadPx / 2 - footPx, TEX_SIZE, footPx);
-    ctx.fillRect(0, center + roadPx / 2, TEX_SIZE, footPx);
-    // Vertical footpaths
-    ctx.fillRect(center - roadPx / 2 - footPx, 0, footPx, TEX_SIZE);
-    ctx.fillRect(center + roadPx / 2, 0, footPx, TEX_SIZE);
+  // Asphalt
+  ctx.fillStyle = "#0e0406";
+  ctx.fillRect(0, half - roadPx / 2, TEX_SIZE, roadPx);
+  ctx.fillRect(half - roadPx / 2, 0, roadPx, TEX_SIZE);
 
-    // Asphalt road — slightly red-tinted dark
-    ctx.fillStyle = "#0e0406";
-    ctx.fillRect(0, center - roadPx / 2, TEX_SIZE, roadPx);
-    ctx.fillRect(center - roadPx / 2, 0, roadPx, TEX_SIZE);
+  // Centre dashes
+  const numDashes = 4;
+  const segLen = TEX_SIZE - roadPx;
+  const segStart = roadPx / 2;
+
+  ctx.fillStyle = "#cc0022";
+  for (let d = 0; d < numDashes; d++) {
+    const t0 = d / numDashes;
+    const t1 = (d + 0.45) / numDashes;
+    ctx.fillRect(segStart + t0 * segLen, half - 1.5, (t1 - t0) * segLen, 3);
+    ctx.fillRect(half - 1.5, segStart + t0 * segLen, 3, (t1 - t0) * segLen);
   }
 
-  // Road markings
-  for (let i = -EXTENT; i <= EXTENT; i++) {
-    const roadCenter = halfTex + i * blockPx;
-
-    for (let j = -EXTENT; j <= EXTENT; j++) {
-      const blockCenter = halfTex + j * blockPx;
-      const segLen = (BLOCK_SIZE - ROAD_WIDTH) * scale;
-      const segStart = blockCenter - segLen / 2;
-
-      // Red centre dashes — horizontal road
-      const numDashes = 4;
-      ctx.fillStyle = "#cc0022";
-      for (let d = 0; d < numDashes; d++) {
-        const t0 = d / numDashes;
-        const t1 = (d + 0.45) / numDashes;
-        const x0 = segStart + t0 * segLen;
-        const x1 = segStart + t1 * segLen;
-        ctx.fillRect(x0, roadCenter - 1.5, x1 - x0, 3);
-      }
-
-      // Red centre dashes — vertical road
-      for (let d = 0; d < numDashes; d++) {
-        const t0 = d / numDashes;
-        const t1 = (d + 0.45) / numDashes;
-        const z0 = segStart + t0 * segLen;
-        const z1 = segStart + t1 * segLen;
-        ctx.fillRect(roadCenter - 1.5, z0, 3, z1 - z0);
-      }
-
-      // Dim red edge lines
-      ctx.fillStyle = "rgba(180,0,30,0.3)";
-      ctx.fillRect(segStart, roadCenter - roadPx / 2 + 1, segLen, 2);
-      ctx.fillRect(segStart, roadCenter + roadPx / 2 - 3, segLen, 2);
-      ctx.fillRect(roadCenter - roadPx / 2 + 1, segStart, 2, segLen);
-      ctx.fillRect(roadCenter + roadPx / 2 - 3, segStart, 2, segLen);
-    }
-  }
+  // Edge lines
+  ctx.fillStyle = "rgba(180,0,30,0.3)";
+  ctx.fillRect(segStart, half - roadPx / 2 + 1, segLen, 2);
+  ctx.fillRect(segStart, half + roadPx / 2 - 3, segLen, 2);
+  ctx.fillRect(half - roadPx / 2 + 1, segStart, 2, segLen);
+  ctx.fillRect(half + roadPx / 2 - 3, segStart, 2, segLen);
 
   const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(TILE_COUNT, TILE_COUNT);
+  tex.needsUpdate = true;
   return tex;
 }
 
 export default function Roads() {
   const texture = useMemo(() => {
     if (typeof window === "undefined") return null;
-    return makeRoadTexture();
+    return makeTileTexture();
   }, []);
 
   if (!texture) return null;
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-      <planeGeometry args={[TOTAL, TOTAL]} />
+      <planeGeometry args={[PLANE_SIZE, PLANE_SIZE]} />
       <meshStandardMaterial
         map={texture}
         roughness={0.95}
