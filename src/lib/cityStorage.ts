@@ -3,36 +3,44 @@ import type { LeetCodeStats } from "@/types/leetcode";
 export interface StoredUser { stats: LeetCodeStats; addedAt: number; }
 export type CityData = Record<string, StoredUser>;
 
+async function safeJson(res: Response): Promise<any> {
+  const text = await res.text();
+  if (!text || text === "null") return {};
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
 export async function loadCity(): Promise<CityData> {
   try {
     const res = await fetch("/api/city");
     if (!res.ok) return {};
-    const text = await res.text();
-    if (!text || text === "null") return {};
-    return JSON.parse(text);
+    return await safeJson(res);
   } catch { return {}; }
 }
 
 export async function saveUser(stats: LeetCodeStats): Promise<CityData> {
-  const res = await fetch("/api/city", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "save", username: stats.username, stats }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error ?? "Failed to save");
+  try {
+    const res = await fetch("/api/city", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", username: stats.username, stats }),
+    });
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data.error ?? "Failed to save");
+    return data;
+  } catch (e: any) {
+    throw new Error(e.message ?? "Failed to save");
   }
-  return res.json();
 }
 
 export async function removeUser(username: string): Promise<CityData> {
-  const res = await fetch("/api/city", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "remove", username }),
-  });
-  return res.json();
+  try {
+    const res = await fetch("/api/city", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "remove", username }),
+    });
+    return await safeJson(res);
+  } catch { return {}; }
 }
 
 export const PLOT_SIZE  = 14;
