@@ -1,77 +1,61 @@
-import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
 
-const kv = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+export async function GET(req: NextRequest) {
+  const username = req.nextUrl.searchParams.get("user");
 
-const CITY_KEY = "leetcity:users";
-const MAX_USERS = 200;
-const MAX_PER_IP = 3;
-const IP_WINDOW_MS = 60_000;
-
-export async function GET() {
-  try {
-    const data = await kv.get(CITY_KEY);
-    return NextResponse.json(data ?? {});
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({});
+  if (!username) {
+    return NextResponse.json({ error: "Username required" }, { status: 400 });
   }
-}
 
-export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const { action, username, stats } = await req.json();
+    const res = await fetch("https://leetcode.com/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `
+          query getUserProfile($username: String!) {
+            matchedUser(username: $username) {
+              username
+              submitStats: submitStatsGlobal {
+                acSubmissionNum {
+                  difficulty
+                  count
+                }
+              }
+              userCalendar {
+                streak
+              }
+            }
+          }
+        `,
+        variables: { username },
+      }),
+    });
 
-    if (!action || !username || typeof username !== "string") {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    const json = await res.json();
+    const user = json?.data?.matchedUser;
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (!/^[a-zA-Z0-9_-]{1,30}$/.test(username)) {
-      return NextResponse.json({ error: "Invalid username" }, { status: 400 });
-    }
+    const stats = user.submitStats.acSubmissionNum;
+    const easy = stats.find((s: any) => s.difficulty === "Easy")?.count ?? 0;
+    const medium = stats.find((s: any) => s.difficulty === "Medium")?.count ?? 0;
+    const hard = stats.find((s: any) => s.difficulty === "Hard")?.count ?? 0;
+    const total = stats.find((s: any) => s.difficulty === "All")?.count ?? 0;
+    const streak = user.userCalendar?.streak ?? 0;
 
-    const city: Record<string, any> = (await kv.get(CITY_KEY)) ?? {};
-
-    if (action === "save") {
-      if (city[username]) return NextResponse.json(city);
-
-      if (Object.keys(city).length >= MAX_USERS) {
-        return NextResponse.json({ error: "City is full" }, { status: 429 });
-      }
-
-      const ipKey = `ip:${ip}`;
-      const ipData: { count: number; since: number } =
-        (await kv.get(ipKey)) ?? { count: 0, since: Date.now() };
-
-      const windowExpired = Date.now() - ipData.since >= IP_WINDOW_MS;
-      if (!windowExpired && ipData.count >= MAX_PER_IP) {
-        return NextResponse.json({ error: "Too many requests, wait a minute" }, { status: 429 });
-      }
-
-      await kv.set(
-        ipKey,
-        windowExpired ? { count: 1, since: Date.now() } : { ...ipData, count: ipData.count + 1 },
-        { ex: 120 }
-      );
-
-      city[username] = { stats, addedAt: Date.now() };
-      await kv.set(CITY_KEY, city);
-      return NextResponse.json(city);
-    }
-
-    if (action === "remove") {
-      delete city[username];
-      await kv.set(CITY_KEY, city);
-      return NextResponse.json(city);
-    }
-
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    return NextResponse.json({
+      username: user.username,
+      easy,
+      medium,
+      hard,
+      total,
+      streak,
+    });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
 }
