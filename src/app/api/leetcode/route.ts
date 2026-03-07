@@ -1,9 +1,10 @@
 import { Redis } from "@upstash/redis";
+import { NextRequest, NextResponse } from "next/server";
+
 const kv = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
-import { NextRequest, NextResponse } from "next/server";
 
 const CITY_KEY = "leetcity:users";
 const MAX_USERS = 200;
@@ -11,8 +12,13 @@ const MAX_PER_IP = 3;
 const IP_WINDOW_MS = 60_000;
 
 export async function GET() {
-  const data = (await kv.get(CITY_KEY)) ?? {};
-  return NextResponse.json(data);
+  try {
+    const data = await kv.get(CITY_KEY);
+    return NextResponse.json(data ?? {});
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({});
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -24,7 +30,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // Only alphanumeric + hyphen/underscore, max 30 chars
     if (!/^[a-zA-Z0-9_-]{1,30}$/.test(username)) {
       return NextResponse.json({ error: "Invalid username" }, { status: 400 });
     }
@@ -32,15 +37,12 @@ export async function POST(req: NextRequest) {
     const city: Record<string, any> = (await kv.get(CITY_KEY)) ?? {};
 
     if (action === "save") {
-      // Already in city — return as-is, no re-add needed
       if (city[username]) return NextResponse.json(city);
 
-      // Hard cap on city size
       if (Object.keys(city).length >= MAX_USERS) {
         return NextResponse.json({ error: "City is full" }, { status: 429 });
       }
 
-      // Per-IP rate limit
       const ipKey = `ip:${ip}`;
       const ipData: { count: number; since: number } =
         (await kv.get(ipKey)) ?? { count: 0, since: Date.now() };

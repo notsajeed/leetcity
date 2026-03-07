@@ -3,13 +3,13 @@ import type { LeetCodeStats } from "@/types/leetcode";
 export interface StoredUser { stats: LeetCodeStats; addedAt: number; }
 export type CityData = Record<string, StoredUser>;
 
-// ── DB-backed functions (used in production) ──────────────────────────────
-
 export async function loadCity(): Promise<CityData> {
   try {
     const res = await fetch("/api/city");
     if (!res.ok) return {};
-    return res.json();
+    const text = await res.text();
+    if (!text || text === "null") return {};
+    return JSON.parse(text);
   } catch { return {}; }
 }
 
@@ -34,8 +34,6 @@ export async function removeUser(username: string): Promise<CityData> {
   });
   return res.json();
 }
-
-// ── Grid / position logic (unchanged) ────────────────────────────────────
 
 export const PLOT_SIZE  = 14;
 export const ROAD_WIDTH = 6;
