@@ -1,69 +1,71 @@
+import { kv } from "@vercel/kv";
 import { NextRequest, NextResponse } from "next/server";
-import type { LeetCodeStats, SubmissionStat } from "../../../types/leetcode";
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const username = searchParams.get("user");
+const CITY_KEY = "leetcity:users";
+const MAX_USERS = 200;
+const MAX_PER_IP = 3;
+const IP_WINDOW_MS = 60_000;
 
-  if (!username) {
-    return NextResponse.json({ error: "Username required" }, { status: 400 });
-  }
+export async function GET() {
+  const data = (await kv.get(CITY_KEY)) ?? {};
+  return NextResponse.json(data);
+}
 
+export async function POST(req: NextRequest) {
   try {
-    const response = await fetch("https://leetcode.com/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Referer": "https://leetcode.com",
-      },
-      body: JSON.stringify({
-        query: `
-          query userStats($username: String!) {
-            matchedUser(username: $username) {
-              submitStats {
-                acSubmissionNum {
-                  difficulty
-                  count
-                }
-              }
-              userCalendar {
-                streak
-              }
-            }
-          }
-        `,
-        variables: { username },
-      }),
-    });
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const { action, username, stats } = await req.json();
 
-    if (!response.ok) {
-      return NextResponse.json({ error: "LeetCode API error" }, { status: 502 });
+    if (!action || !username || typeof username !== "string") {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    const raw = await response.json();
-    const user = raw?.data?.matchedUser;
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // Only alphanumeric + hyphen/underscore, max 30 chars
+    if (!/^[a-zA-Z0-9_-]{1,30}$/.test(username)) {
+      return NextResponse.json({ error: "Invalid username" }, { status: 400 });
     }
 
-    const submissions: SubmissionStat[] = user.submitStats?.acSubmissionNum ?? [];
+    const city: Record<string, any> = (await kv.get(CITY_KEY)) ?? {};
 
-    const get = (difficulty: string) =>
-      submissions.find((s) => s.difficulty === difficulty)?.count ?? 0;
+    if (action === "save") {
+      // Already in city — return as-is, no re-add needed
+      if (city[username]) return NextResponse.json(city);
 
-    const stats: LeetCodeStats = {
-      username,
-      easy: get("Easy"),
-      medium: get("Medium"),
-      hard: get("Hard"),
-      total: get("All"),
-      streak: user.userCalendar?.streak ?? 0,
-    };
+      // Hard cap on city size
+      if (Object.keys(city).length >= MAX_USERS) {
+        return NextResponse.json({ error: "City is full" }, { status: 429 });
+      }
 
-    return NextResponse.json(stats);
+      // Per-IP rate limit
+      const ipKey = `ip:${ip}`;
+      const ipData: { count: number; since: number } =
+        (await kv.get(ipKey)) ?? { count: 0, since: Date.now() };
+
+      const windowExpired = Date.now() - ipData.since >= IP_WINDOW_MS;
+      if (!windowExpired && ipData.count >= MAX_PER_IP) {
+        return NextResponse.json({ error: "Too many requests, wait a minute" }, { status: 429 });
+      }
+
+      await kv.set(
+        ipKey,
+        windowExpired ? { count: 1, since: Date.now() } : { ...ipData, count: ipData.count + 1 },
+        { ex: 120 }
+      );
+
+      city[username] = { stats, addedAt: Date.now() };
+      await kv.set(CITY_KEY, city);
+      return NextResponse.json(city);
+    }
+
+    if (action === "remove") {
+      delete city[username];
+      await kv.set(CITY_KEY, city);
+      return NextResponse.json(city);
+    }
+
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -22,9 +22,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load persisted city on mount
+  // Load city from DB on mount
   useEffect(() => {
-    setCityData(loadCity());
+    loadCity().then(setCityData);
   }, []);
 
   const users = Object.values(cityData).map((u) => u.stats);
@@ -55,19 +55,19 @@ export default function Home() {
         return;
       }
 
-      const updated = saveUser(data as LeetCodeStats);
+      const updated = await saveUser(data as LeetCodeStats);
       setCityData(updated);
       setSelectedUsername(name);
       setUsername("");
-    } catch {
-      setError("Network error");
+    } catch (e: any) {
+      setError(e.message ?? "Network error");
     } finally {
       setIsLoading(false);
     }
   }, [username, cityData]);
 
-  const handleRemove = (name: string) => {
-    const updated = removeUser(name);
+  const handleRemove = async (name: string) => {
+    const updated = await removeUser(name);
     setCityData(updated);
     if (selectedUsername === name) setSelectedUsername(null);
   };
@@ -116,7 +116,7 @@ export default function Home() {
         <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
           <span
             style={{
-              color: "#00aaff",
+              color: "#ff1133",
               fontSize: "18px",
               fontWeight: "800",
               letterSpacing: "0.05em",
@@ -126,7 +126,7 @@ export default function Home() {
           </span>
           <span
             style={{
-              color: "#ffaa00",
+              color: "#cc0022",
               fontSize: "18px",
               fontWeight: "800",
               letterSpacing: "0.05em",
@@ -136,7 +136,7 @@ export default function Home() {
           </span>
           <span
             style={{
-              color: "#334d6e",
+              color: "#440011",
               fontSize: "10px",
               marginLeft: "8px",
               letterSpacing: "0.15em",
@@ -148,57 +148,38 @@ export default function Home() {
 
         {/* Search */}
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <div style={{ position: "relative" }}>
-            <span
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#334d6e",
-                fontSize: "11px",
-                pointerEvents: "none",
-              }}
-            >
-              $
-            </span>
-            <input
-              type="text"
-              placeholder="add username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onKeyDown={handleKey}
-              style={{
-                background: "rgba(10,20,40,0.8)",
-                border: "1px solid rgba(0,170,255,0.25)",
-                borderRadius: "2px",
-                color: "#e2e8f0",
-                fontSize: "13px",
-                padding: "8px 14px 8px 26px",
-                outline: "none",
-                width: "200px",
-                fontFamily: "inherit",
-                letterSpacing: "0.05em",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) =>
-                (e.target.style.borderColor = "rgba(0,170,255,0.6)")
-              }
-              onBlur={(e) =>
-                (e.target.style.borderColor = "rgba(0,170,255,0.25)")
-              }
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="enter username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={handleKey}
+            style={{
+              background: "rgba(20,0,5,0.9)",
+              border: "1px solid rgba(200,0,30,0.3)",
+              borderRadius: "4px",
+              color: "#ffaaaa",
+              fontSize: "13px",
+              padding: "8px 14px",
+              outline: "none",
+              width: "200px",
+              fontFamily: "inherit",
+              letterSpacing: "0.05em",
+              transition: "border-color 0.2s",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "rgba(255,0,51,0.7)")}
+            onBlur={(e) => (e.target.style.borderColor = "rgba(200,0,30,0.3)")}
+          />
           <button
             onClick={fetchAndAdd}
             disabled={isLoading || !username.trim()}
             style={{
               background: isLoading
-                ? "rgba(0,80,160,0.3)"
-                : "rgba(0,120,255,0.15)",
-              border: "1px solid rgba(0,170,255,0.4)",
-              borderRadius: "2px",
-              color: isLoading ? "#334d6e" : "#00aaff",
+                ? "rgba(80,0,15,0.4)"
+                : "rgba(180,0,30,0.2)",
+              border: "1px solid rgba(255,0,51,0.4)",
+              borderRadius: "4px",
+              color: isLoading ? "#550011" : "#ff1133",
               fontSize: "11px",
               letterSpacing: "0.15em",
               padding: "8px 18px",
@@ -206,99 +187,20 @@ export default function Home() {
               fontFamily: "inherit",
               transition: "all 0.2s",
             }}
+            onMouseEnter={(e) => {
+              if (!isLoading && username.trim())
+                e.currentTarget.style.background = "rgba(200,0,30,0.35)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = isLoading
+                ? "rgba(80,0,15,0.4)"
+                : "rgba(180,0,30,0.2)";
+            }}
           >
             {isLoading ? "SCANNING..." : "ADD TO CITY"}
           </button>
         </div>
       </div>
-
-      {/* Citizens list — top right */}
-      {users.length > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            top: "72px",
-            right: "28px",
-            zIndex: 20,
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-            maxHeight: "60vh",
-            overflowY: "auto",
-          }}
-        >
-          {users.map((u) => (
-            <div
-              key={u.username}
-              onClick={() => setSelectedUsername(u.username)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "12px",
-                padding: "7px 12px",
-                background:
-                  selectedUsername === u.username
-                    ? "rgba(0,100,200,0.25)"
-                    : "rgba(2,7,18,0.75)",
-                border: `1px solid ${selectedUsername === u.username ? "rgba(0,170,255,0.5)" : "rgba(0,170,255,0.1)"}`,
-                borderRadius: "2px",
-                cursor: "pointer",
-                backdropFilter: "blur(8px)",
-                transition: "all 0.15s",
-                minWidth: "180px",
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    color:
-                      selectedUsername === u.username ? "#00aaff" : "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: "700",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {u.username}
-                </div>
-                <div
-                  style={{
-                    color: "#334d6e",
-                    fontSize: "9px",
-                    letterSpacing: "0.1em",
-                  }}
-                >
-                  {u.total} solved
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemove(u.username);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#1e3a5f",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  lineHeight: 1,
-                  padding: "2px 4px",
-                  fontFamily: "inherit",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.target as HTMLElement).style.color = "#ff4444")
-                }
-                onMouseLeave={(e) =>
-                  ((e.target as HTMLElement).style.color = "#1e3a5f")
-                }
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Stats panel — bottom left */}
       {selectedStats && (
@@ -382,10 +284,10 @@ export default function Home() {
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { overflow: hidden; }
-        input::placeholder { color: #1e3a5f; }
+        input::placeholder { color: #440011; }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: #550011; border-radius: 2px; }
       `}</style>
     </main>
   );

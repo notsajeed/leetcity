@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useRef, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -22,26 +22,42 @@ interface SceneProps {
 function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null);
 
+  const { camera } = useThree();
+
   useEffect(() => {
     if (!controlsRef.current || !selectedUsername) return;
     const idx = users.findIndex((u) => u.username === selectedUsername);
     if (idx === -1) return;
     const [bx, , bz] = getUserPosition(idx);
     const config = statsToBuildingConfig(users[idx]);
-    const to = new THREE.Vector3(bx, config.height * 0.3, bz);
-    const from = controlsRef.current.target.clone();
+
+    // Target = mid-height of building
+    const targetTo = new THREE.Vector3(bx, config.height * 0.4, bz);
+    const targetFrom = controlsRef.current.target.clone();
+
+    // Camera flies to a position offset from the building
+    const camOffset = new THREE.Vector3(
+      config.width * 3 + 12,
+      config.height * 0.6 + 8,
+      config.depth * 3 + 12,
+    );
+    const camTo = targetTo.clone().add(camOffset);
+    const camFrom = camera.position.clone();
+
     let frame = 0;
+    const FRAMES = 50;
     const animate = () => {
       if (!controlsRef.current) return;
       frame++;
-      const t = Math.min(frame / 24, 1);
-      const ease = 1 - Math.pow(1 - t, 3);
-      controlsRef.current.target.lerpVectors(from, to, ease);
+      const t = Math.min(frame / FRAMES, 1);
+      const ease = 1 - Math.pow(1 - t, 4); // ease out quart — snappy start, smooth land
+      controlsRef.current.target.lerpVectors(targetFrom, targetTo, ease);
+      camera.position.lerpVectors(camFrom, camTo, ease);
       controlsRef.current.update();
       if (t < 1) requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
-  }, [selectedUsername, users]);
+  }, [selectedUsername, users, camera]);
 
   return (
     <>
@@ -102,8 +118,8 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
         minDistance={2}
         maxDistance={3000}
         maxPolarAngle={Math.PI / 2.1}
-        autoRotate={users.length === 0}
-        autoRotateSpeed={0.4}
+        autoRotate={!!selectedUsername || users.length === 0}
+        autoRotateSpeed={selectedUsername ? 1.2 : 0.4}
         makeDefault
       />
     </>

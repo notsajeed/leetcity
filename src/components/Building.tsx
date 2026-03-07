@@ -113,24 +113,24 @@ const WIN_GEO_Z = new THREE.BoxGeometry(WIN_W, WIN_H, WIN_D);
 const WIN_GEO_X = new THREE.BoxGeometry(WIN_D, WIN_H, WIN_W);
 
 const MAT_EASY = new THREE.MeshStandardMaterial({
-  color: "#00aaff",
-  emissive: new THREE.Color("#00aaff"),
-  emissiveIntensity: 3.5,
-  roughness: 0,
+  color: "#880018",
+  emissive: new THREE.Color("#660012"),
+  emissiveIntensity: 2.2,
+  roughness: 0.1,
   metalness: 0,
 });
 const MAT_MED = new THREE.MeshStandardMaterial({
-  color: "#ff9900",
-  emissive: new THREE.Color("#ff9900"),
-  emissiveIntensity: 3.5,
-  roughness: 0,
+  color: "#cc0022",
+  emissive: new THREE.Color("#aa001a"),
+  emissiveIntensity: 2.8,
+  roughness: 0.1,
   metalness: 0,
 });
 const MAT_HARD = new THREE.MeshStandardMaterial({
-  color: "#ff2255",
-  emissive: new THREE.Color("#ff2255"),
-  emissiveIntensity: 4.0,
-  roughness: 0,
+  color: "#ff1133",
+  emissive: new THREE.Color("#dd0022"),
+  emissiveIntensity: 3.2,
+  roughness: 0.0,
   metalness: 0,
 });
 

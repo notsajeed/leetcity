@@ -21,16 +21,16 @@ function makeRoadTexture(): THREE.CanvasTexture {
   const blockPx = BLOCK_SIZE * scale;
   const halfTex = TEX_SIZE / 2;
 
-  // Base — dark ground
-  ctx.fillStyle = "#050810";
+  // Base — near black with red tint
+  ctx.fillStyle = "#080203";
   ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
 
   // Draw all horizontal and vertical roads + footpaths
   for (let i = -EXTENT; i <= EXTENT; i++) {
     const center = halfTex + i * blockPx;
 
-    // Footpaths (slightly lighter, drawn first, wider)
-    ctx.fillStyle = "#161d2a";
+    // Footpaths — dark red-tinted stone
+    ctx.fillStyle = "#140508";
     // Horizontal footpaths
     ctx.fillRect(0, center - roadPx / 2 - footPx, TEX_SIZE, footPx);
     ctx.fillRect(0, center + roadPx / 2, TEX_SIZE, footPx);
@@ -38,13 +38,13 @@ function makeRoadTexture(): THREE.CanvasTexture {
     ctx.fillRect(center - roadPx / 2 - footPx, 0, footPx, TEX_SIZE);
     ctx.fillRect(center + roadPx / 2, 0, footPx, TEX_SIZE);
 
-    // Asphalt road
-    ctx.fillStyle = "#0d1117";
-    ctx.fillRect(0, center - roadPx / 2, TEX_SIZE, roadPx); // horizontal
-    ctx.fillRect(center - roadPx / 2, 0, roadPx, TEX_SIZE); // vertical
+    // Asphalt road — slightly red-tinted dark
+    ctx.fillStyle = "#0e0406";
+    ctx.fillRect(0, center - roadPx / 2, TEX_SIZE, roadPx);
+    ctx.fillRect(center - roadPx / 2, 0, roadPx, TEX_SIZE);
   }
 
-  // Road markings — dashes and edge lines
+  // Road markings
   for (let i = -EXTENT; i <= EXTENT; i++) {
     const roadCenter = halfTex + i * blockPx;
 
@@ -53,9 +53,9 @@ function makeRoadTexture(): THREE.CanvasTexture {
       const segLen = (BLOCK_SIZE - ROAD_WIDTH) * scale;
       const segStart = blockCenter - segLen / 2;
 
-      // Yellow centre dashes — horizontal road
+      // Red centre dashes — horizontal road
       const numDashes = 4;
-      ctx.fillStyle = "#ffcc00";
+      ctx.fillStyle = "#cc0022";
       for (let d = 0; d < numDashes; d++) {
         const t0 = d / numDashes;
         const t1 = (d + 0.45) / numDashes;
@@ -64,7 +64,7 @@ function makeRoadTexture(): THREE.CanvasTexture {
         ctx.fillRect(x0, roadCenter - 1.5, x1 - x0, 3);
       }
 
-      // Yellow centre dashes — vertical road
+      // Red centre dashes — vertical road
       for (let d = 0; d < numDashes; d++) {
         const t0 = d / numDashes;
         const t1 = (d + 0.45) / numDashes;
@@ -73,12 +73,10 @@ function makeRoadTexture(): THREE.CanvasTexture {
         ctx.fillRect(roadCenter - 1.5, z0, 3, z1 - z0);
       }
 
-      // White edge lines — horizontal road
-      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      // Dim red edge lines
+      ctx.fillStyle = "rgba(180,0,30,0.3)";
       ctx.fillRect(segStart, roadCenter - roadPx / 2 + 1, segLen, 2);
       ctx.fillRect(segStart, roadCenter + roadPx / 2 - 3, segLen, 2);
-
-      // White edge lines — vertical road
       ctx.fillRect(roadCenter - roadPx / 2 + 1, segStart, 2, segLen);
       ctx.fillRect(roadCenter + roadPx / 2 - 3, segStart, 2, segLen);
     }
