@@ -91,7 +91,6 @@ function buildWindows(
   return result;
 }
 
-// Body material pushes surface BACK so windows always win depth test
 const makeBodyMat = (color: string, emissive?: string) =>
   new THREE.MeshStandardMaterial({
     color,
@@ -108,7 +107,6 @@ const makeBodyMat = (color: string, emissive?: string) =>
 const BODY_MAT = makeBodyMat("#080e1a");
 const BODY_SEL_MAT = makeBodyMat("#0a1628", "#001840");
 
-// Window geometries — Z-facing and X-facing
 const WIN_GEO_Z = new THREE.BoxGeometry(WIN_W, WIN_H, WIN_D);
 const WIN_GEO_X = new THREE.BoxGeometry(WIN_D, WIN_H, WIN_W);
 
@@ -205,7 +203,7 @@ export default function Building({
   useFrame((state) => {
     if (groupRef.current)
       groupRef.current.position.y =
-        position[1] + Math.sin(state.clock.elapsedTime * 0.4) * 0.04;
+        position[1] + (Math.sin(state.clock.elapsedTime * 0.4) + 1) * 0.02;
     if (beamRef.current && selected) {
       const mat = beamRef.current.material as THREE.MeshStandardMaterial;
       mat.emissiveIntensity = 1.5 + Math.sin(state.clock.elapsedTime * 2) * 0.8;
@@ -219,6 +217,7 @@ export default function Building({
     <group
       ref={groupRef}
       position={position}
+      renderOrder={1}
       onClick={(e) => {
         e.stopPropagation();
         onClick?.();
@@ -230,7 +229,7 @@ export default function Building({
         document.body.style.cursor = "default";
       }}
     >
-      {/* Body — polygonOffset pushes it behind windows */}
+      {/* Body */}
       <mesh scale={[w, h, d]} material={selected ? BODY_SEL_MAT : BODY_MAT}>
         <boxGeometry />
       </mesh>

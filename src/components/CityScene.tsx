@@ -11,8 +11,6 @@ import { statsToBuildingConfig } from "@/lib/buildingUtils";
 import { getUserPosition } from "@/lib/cityStorage";
 import type { LeetCodeStats } from "@/types/leetcode";
 
-// Clear separation eliminates z-fighting entirely
-
 interface SceneProps {
   users: LeetCodeStats[];
   selectedUsername: string | null;
@@ -21,7 +19,6 @@ interface SceneProps {
 
 function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null);
-
   const { camera } = useThree();
 
   useEffect(() => {
@@ -31,11 +28,9 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
     const [bx, , bz] = getUserPosition(idx);
     const config = statsToBuildingConfig(users[idx]);
 
-    // Target = mid-height of building
     const targetTo = new THREE.Vector3(bx, config.height * 0.4, bz);
     const targetFrom = controlsRef.current.target.clone();
 
-    // Camera flies to a position offset from the building
     const camOffset = new THREE.Vector3(
       config.width * 3 + 12,
       config.height * 0.6 + 8,
@@ -50,7 +45,7 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
       if (!controlsRef.current) return;
       frame++;
       const t = Math.min(frame / FRAMES, 1);
-      const ease = 1 - Math.pow(1 - t, 4); // ease out quart — snappy start, smooth land
+      const ease = 1 - Math.pow(1 - t, 4);
       controlsRef.current.target.lerpVectors(targetFrom, targetTo, ease);
       camera.position.lerpVectors(camFrom, camTo, ease);
       controlsRef.current.update();
@@ -118,7 +113,7 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
         minDistance={2}
         maxDistance={3000}
         maxPolarAngle={Math.PI / 2.1}
-        autoRotate={!!selectedUsername || users.length === 0}
+        autoRotate={true}
         autoRotateSpeed={selectedUsername ? 1.2 : 0.4}
         makeDefault
       />

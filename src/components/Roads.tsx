@@ -4,10 +4,10 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { BLOCK_SIZE, ROAD_WIDTH } from "@/lib/cityStorage";
 
+const EXTENT = 80;
 const FOOTPATH_WIDTH = 1.8;
-const TEX_SIZE = 512; // one cell
-const PLANE_SIZE = 8000; // large enough to never see the edge
-const TILE_COUNT = PLANE_SIZE / BLOCK_SIZE;
+const TOTAL = (EXTENT * 2 + 1) * BLOCK_SIZE;
+const TEX_SIZE = 512; // one crisp block cell
 
 function makeTileTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
@@ -20,7 +20,7 @@ function makeTileTexture(): THREE.CanvasTexture {
   const footPx = FOOTPATH_WIDTH * scale;
   const half = TEX_SIZE / 2;
 
-  // Base — near-black red tint
+  // Base
   ctx.fillStyle = "#080203";
   ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
 
@@ -40,7 +40,6 @@ function makeTileTexture(): THREE.CanvasTexture {
   const numDashes = 4;
   const segLen = TEX_SIZE - roadPx;
   const segStart = roadPx / 2;
-
   ctx.fillStyle = "#cc0022";
   for (let d = 0; d < numDashes; d++) {
     const t0 = d / numDashes;
@@ -58,7 +57,8 @@ function makeTileTexture(): THREE.CanvasTexture {
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(TILE_COUNT, TILE_COUNT);
+  tex.repeat.set(EXTENT * 2 + 1, EXTENT * 2 + 1); // one repeat per block
+  tex.anisotropy = 16; // keeps it sharp at grazing angles
   tex.needsUpdate = true;
   return tex;
 }
@@ -73,7 +73,7 @@ export default function Roads() {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-      <planeGeometry args={[PLANE_SIZE, PLANE_SIZE]} />
+      <planeGeometry args={[TOTAL, TOTAL]} />
       <meshStandardMaterial
         map={texture}
         roughness={0.95}

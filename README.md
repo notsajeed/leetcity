@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LeetCity
 
-## Getting Started
+LeetCity is a web application that visualizes LeetCode user statistics as buildings in a 3D city.
 
-First, run the development server:
+Inspired by the idea behind GitCity, the project represents programming activity spatially. Instead of viewing statistics as numbers or charts, each LeetCode user becomes a building in a generated skyline.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Live site: https://leetcity.vercel.app
+
+---
+
+## Overview
+
+LeetCity fetches public LeetCode profile data and converts it into structures inside an interactive 3D environment.
+
+Users can add one or more LeetCode usernames. For each user:
+
+- their statistics are fetched from the API
+- a building is generated in the city
+- selecting the building reveals that user's stats
+
+As more users are added, the skyline expands to form a small city made up of developer profiles.
+
+---
+
+## Features
+
+- 3D visualization of LeetCode users as buildings
+- Add multiple usernames to grow the city
+- Interactive scene navigation
+- Click buildings to inspect user statistics
+- Persistent city data using Redis
+
+---
+
+## Usage
+
+1. Open the application at
+   https://leetcity.vercel.app
+
+2. Enter a LeetCode username.
+
+3. Press **ADD**.
+
+4. A building representing that user appears in the city.
+
+5. Click the building to view detailed statistics.
+
+Multiple users can be added to expand the skyline.
+
+---
+
+## Controls
+
+| Action          | Control |
+| --------------- | ------- |
+| Rotate camera   | Drag    |
+| Zoom            | Scroll  |
+| Select building | Click   |
+
+---
+
+## Tech Stack
+
+- Next.js
+- React
+- TypeScript
+- React Three Fiber / Three.js
+- Upstash Redis
+
+---
+
+## Running Locally
+
+Clone the repository:
+
+```bash id="clone"
+git clone https://github.com/yourusername/leetcity.git
+cd leetcity
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Install dependencies:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash id="install"
+npm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file and configure your Redis connection:
 
-## Learn More
+```bash id="env"
+UPSTASH_REDIS_REST_URL=your_url
+UPSTASH_REDIS_REST_TOKEN=your_token
+```
 
-To learn more about Next.js, take a look at the following resources:
+Start the development server:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash id="dev"
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open:
 
-## Deploy on Vercel
+```
+http://localhost:3000
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Inspiration
+
+The project is loosely inspired by GitCity, which visualizes GitHub activity as cities. LeetCity applies a similar idea to competitive programming by representing LeetCode activity as buildings in a city.
+
+---
+
+## License
+
+MIT License
