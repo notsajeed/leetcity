@@ -22,7 +22,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load city from DB on mount
   useEffect(() => {
     loadCity().then(setCityData);
   }, []);
@@ -35,26 +34,20 @@ export default function Home() {
   const fetchAndAdd = useCallback(async () => {
     const name = username.trim();
     if (!name) return;
-
-    // If already in city, just select it
     if (cityData[name]) {
       setSelectedUsername(name);
       setUsername("");
       return;
     }
-
     setIsLoading(true);
     setError(null);
-
     try {
       const res = await fetch(`/api/leetcode?user=${encodeURIComponent(name)}`);
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.error ?? "User not found");
         return;
       }
-
       const updated = await saveUser(data as LeetCodeStats);
       setCityData(updated);
       setSelectedUsername(name);
@@ -104,53 +97,82 @@ export default function Home() {
           left: 0,
           right: 0,
           zIndex: 20,
-          padding: "20px 28px",
+          padding: "clamp(12px,3vw,20px) clamp(14px,4vw,28px)",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column",
+          gap: "10px",
           background:
-            "linear-gradient(180deg, rgba(2,7,18,0.95) 0%, transparent 100%)",
+            "linear-gradient(180deg, rgba(2,7,18,0.97) 0%, transparent 100%)",
         }}
       >
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
-          <span
+        {/* Row 1: Brand name (left) + Logo (right) */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
+            <span
+              style={{
+                color: "#ff1133",
+                fontSize: "clamp(14px,4vw,18px)",
+                fontWeight: "800",
+                letterSpacing: "0.05em",
+              }}
+            >
+              LEET
+            </span>
+            <span
+              style={{
+                color: "#cc0022",
+                fontSize: "clamp(14px,4vw,18px)",
+                fontWeight: "800",
+                letterSpacing: "0.05em",
+              }}
+            >
+              CITY
+            </span>
+            <span
+              style={{
+                color: "#440011",
+                fontSize: "10px",
+                marginLeft: "8px",
+                letterSpacing: "0.15em",
+              }}
+            >
+              v0.2
+            </span>
+          </div>
+
+          {/* Logo — scales with viewport, hidden if too small */}
+          <img
+            src="/leetcitylogo.png"
+            alt="LeetCity Logo"
             style={{
-              color: "#ff1133",
-              fontSize: "18px",
-              fontWeight: "800",
-              letterSpacing: "0.05em",
+              height: "clamp(28px, 5vw, 44px)",
+              width: "auto",
+              objectFit: "contain",
+              display: "block",
+              flexShrink: 0,
             }}
-          >
-            LEET
-          </span>
-          <span
-            style={{
-              color: "#cc0022",
-              fontSize: "18px",
-              fontWeight: "800",
-              letterSpacing: "0.05em",
-            }}
-          >
-            CITY
-          </span>
-          <span
-            style={{
-              color: "#440011",
-              fontSize: "10px",
-              marginLeft: "8px",
-              letterSpacing: "0.15em",
-            }}
-          >
-            v0.2
-          </span>
+          />
         </div>
 
-        {/* Search */}
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        {/* Row 2: Search — full width on mobile */}
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
           <input
             type="text"
-            placeholder="enter username"
+            placeholder="enter leetcode username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={handleKey}
@@ -160,9 +182,10 @@ export default function Home() {
               borderRadius: "4px",
               color: "#ffaaaa",
               fontSize: "13px",
-              padding: "8px 14px",
+              padding: "9px 14px",
               outline: "none",
-              width: "200px",
+              flex: 1,
+              minWidth: 0,
               fontFamily: "inherit",
               letterSpacing: "0.05em",
               transition: "border-color 0.2s",
@@ -181,36 +204,30 @@ export default function Home() {
               borderRadius: "4px",
               color: isLoading ? "#550011" : "#ff1133",
               fontSize: "11px",
-              letterSpacing: "0.15em",
-              padding: "8px 18px",
+              letterSpacing: "0.1em",
+              padding: "9px 14px",
               cursor: isLoading ? "not-allowed" : "pointer",
               fontFamily: "inherit",
+              whiteSpace: "nowrap",
               transition: "all 0.2s",
             }}
-            onMouseEnter={(e) => {
-              if (!isLoading && username.trim())
-                e.currentTarget.style.background = "rgba(200,0,30,0.35)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = isLoading
-                ? "rgba(80,0,15,0.4)"
-                : "rgba(180,0,30,0.2)";
-            }}
           >
-            {isLoading ? "SCANNING..." : "ADD TO CITY"}
+            {isLoading ? "..." : "ADD"}
           </button>
         </div>
       </div>
 
-      {/* Stats panel — bottom left */}
+      {/* Stats panel — bottom, full width on mobile */}
       {selectedStats && (
         <div
           style={{
             position: "absolute",
-            bottom: "28px",
-            left: "28px",
+            bottom: "clamp(14px,3vw,28px)",
+            left: "clamp(14px,3vw,28px)",
+            right: "clamp(14px,3vw,28px)",
             zIndex: 20,
             animation: "fadeUp 0.3s ease forwards",
+            maxWidth: "360px",
           }}
         >
           <StatsPanel stats={selectedStats} />
@@ -222,7 +239,7 @@ export default function Home() {
         <div
           style={{
             position: "absolute",
-            bottom: "28px",
+            bottom: "clamp(14px,3vw,28px)",
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 20,
@@ -233,6 +250,7 @@ export default function Home() {
             fontSize: "11px",
             letterSpacing: "0.1em",
             padding: "10px 20px",
+            whiteSpace: "nowrap",
           }}
         >
           ERROR: {error}
@@ -244,32 +262,34 @@ export default function Home() {
         <div
           style={{
             position: "absolute",
-            bottom: "28px",
+            bottom: "clamp(14px,3vw,28px)",
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 20,
             color: "#1e3a5f",
-            fontSize: "10px",
+            fontSize: "clamp(8px,2.5vw,10px)",
             letterSpacing: "0.2em",
             textAlign: "center",
+            whiteSpace: "nowrap",
           }}
         >
           ADD A LEETCODE USERNAME TO BUILD YOUR CITY
         </div>
       )}
 
-      {/* Controls */}
+      {/* Controls hint — hidden on small screens */}
       <div
         style={{
           position: "absolute",
-          bottom: "28px",
-          right: "28px",
+          bottom: "clamp(14px,3vw,28px)",
+          right: "clamp(14px,3vw,28px)",
           zIndex: 20,
           color: "#1e3a5f",
           fontSize: "9px",
           letterSpacing: "0.12em",
           lineHeight: "1.8",
           textAlign: "right",
+          display: "var(--hint-display, block)",
         }}
       >
         DRAG TO ORBIT · SCROLL TO ZOOM
@@ -288,6 +308,9 @@ export default function Home() {
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #550011; border-radius: 2px; }
+        @media (max-width: 480px) {
+          :root { --hint-display: none; }
+        }
       `}</style>
     </main>
   );
