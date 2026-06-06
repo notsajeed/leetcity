@@ -1,6 +1,5 @@
 "use client";
 
-import { useSharedScene } from "@/components/SceneContext";
 import { Suspense, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
@@ -11,26 +10,11 @@ import Roads from "./Roads";
 import { statsToBuildingConfig } from "@/lib/buildingUtils";
 import { getUserPosition } from "@/lib/cityStorage";
 import type { LeetCodeStats } from "@/types/leetcode";
+
 interface SceneProps {
   users: LeetCodeStats[];
   selectedUsername: string | null;
   onSelectUser: (username: string) => void;
-}
-
-// Tiny component that lives inside Canvas so it can call useThree()
-// and publish the R3F-managed scene into our shared context.
-function ScenePublisher() {
-  const { scene } = useThree();
-  const { sceneRef } = useSharedScene();
-
-  useEffect(() => {
-    sceneRef.current = scene;
-    return () => {
-      sceneRef.current = null;
-    };
-  }, [scene, sceneRef]);
-
-  return null;
 }
 
 function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
@@ -44,14 +28,15 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
     const [bx, , bz] = getUserPosition(idx);
     const config = statsToBuildingConfig(users[idx]);
 
-    const targetTo   = new THREE.Vector3(bx, config.height * 0.4, bz);
+    const targetTo = new THREE.Vector3(bx, config.height * 0.4, bz);
     const targetFrom = controlsRef.current.target.clone();
-    const camOffset  = new THREE.Vector3(
+
+    const camOffset = new THREE.Vector3(
       config.width * 3 + 12,
       config.height * 0.6 + 8,
       config.depth * 3 + 12,
     );
-    const camTo   = targetTo.clone().add(camOffset);
+    const camTo = targetTo.clone().add(camOffset);
     const camFrom = camera.position.clone();
 
     let frame = 0;
@@ -59,7 +44,7 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
     const animate = () => {
       if (!controlsRef.current) return;
       frame++;
-      const t    = Math.min(frame / FRAMES, 1);
+      const t = Math.min(frame / FRAMES, 1);
       const ease = 1 - Math.pow(1 - t, 4);
       controlsRef.current.target.lerpVectors(targetFrom, targetTo, ease);
       camera.position.lerpVectors(camFrom, camTo, ease);
@@ -71,23 +56,43 @@ function Scene({ users, selectedUsername, onSelectUser }: SceneProps) {
 
   return (
     <>
-      {/* Publishes this R3F scene into SceneContext so FlyMode can read it */}
-      <ScenePublisher />
-
       <fog attach="fog" args={["#020712", 500, 2000]} />
       <ambientLight intensity={1.2} color="#ffffff" />
-      <directionalLight position={[50, 100, 50]}   intensity={1.5} color="#ffffff" />
-      <directionalLight position={[-50, 60, -50]}  intensity={0.8} color="#aabbff" />
-      <directionalLight position={[0, 30, 80]}     intensity={0.6} color="#ffffff" />
-      <directionalLight position={[0, 30, -80]}    intensity={0.6} color="#ffffff" />
+      <directionalLight
+        position={[50, 100, 50]}
+        intensity={1.5}
+        color="#ffffff"
+      />
+      <directionalLight
+        position={[-50, 60, -50]}
+        intensity={0.8}
+        color="#aabbff"
+      />
+      <directionalLight
+        position={[0, 30, 80]}
+        intensity={0.6}
+        color="#ffffff"
+      />
+      <directionalLight
+        position={[0, 30, -80]}
+        intensity={0.6}
+        color="#ffffff"
+      />
 
-      <Stars radius={1200} depth={300} count={6000} factor={7} fade speed={0.3} />
+      <Stars
+        radius={1200}
+        depth={300}
+        count={6000}
+        factor={7}
+        fade
+        speed={0.3}
+      />
 
       <Suspense fallback={null}>
         <Roads />
         {users.map((stats, index) => {
-          const config      = statsToBuildingConfig(stats);
-          const [bx, , bz]  = getUserPosition(index);
+          const config = statsToBuildingConfig(stats);
+          const [bx, , bz] = getUserPosition(index);
           return (
             <Building
               key={stats.username}
@@ -141,13 +146,11 @@ export default function CityScene({
         style={{ background: "#020712" }}
         performance={{ min: 0.5 }}
       >
-         <ScenePublisher /> 
         <Scene
           users={users}
           selectedUsername={selectedUsername}
           onSelectUser={onSelectUser}
-        /> 
-        
+        />
       </Canvas>
     </div>
   );
